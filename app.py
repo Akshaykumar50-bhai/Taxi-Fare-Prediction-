@@ -1,11 +1,17 @@
-import streamlit as st
+mport streamlit as st
 import requests
 
+
+# --------------------------------------------------
+# Page Configuration
+# --------------------------------------------------
+
 st.set_page_config(
-    page_title="Taxi Fare prediction",
+    page_title="Taxi Fare Prediction",
     page_icon="🚕",
     layout="centered"
 )
+
 
 st.title("🚕 Taxi Fare Prediction")
 
@@ -13,7 +19,18 @@ st.write("Enter the trip details")
 
 st.divider()
 
-st.subheader("Location Details")
+
+# --------------------------------------------------
+# Location Details
+# --------------------------------------------------
+
+st.subheader("📍 Location Details")
+
+st.info(
+    "Valid NYC coordinate range: "
+    "Longitude -75 to -72 | Latitude 39 to 42"
+)
+
 
 pickup_longitude = st.number_input(
     "Pickup Longitude",
@@ -21,17 +38,20 @@ pickup_longitude = st.number_input(
     format="%.6f"
 )
 
+
 pickup_latitude = st.number_input(
     "Pickup Latitude",
-    value=40.78,
+    value=40.780,
     format="%.6f"
 )
+
 
 dropoff_longitude = st.number_input(
     "Dropoff Longitude",
     value=-73.985,
     format="%.6f"
 )
+
 
 dropoff_latitude = st.number_input(
     "Dropoff Latitude",
@@ -40,7 +60,12 @@ dropoff_latitude = st.number_input(
 )
 
 
-st.subheader("Trip Details")
+# --------------------------------------------------
+# Trip Details
+# --------------------------------------------------
+
+st.subheader("🚕 Trip Details")
+
 
 passenger_count = st.number_input(
     "Passenger Count",
@@ -50,12 +75,17 @@ passenger_count = st.number_input(
     step=1
 )
 
-# 🔴 CHANGED
-# Trip distance input removed.
-# FastAPI calculates it using Haversine formula.
+
+# Trip distance is NOT entered by the user.
+# FastAPI calculates it using the Haversine formula.
 
 
-st.subheader("Pickup Time")
+# --------------------------------------------------
+# Pickup Time
+# --------------------------------------------------
+
+st.subheader("🕐 Pickup Time")
+
 
 pickup_hour = st.slider(
     "Pickup Hour",
@@ -63,6 +93,7 @@ pickup_hour = st.slider(
     max_value=23,
     value=18
 )
+
 
 days = {
     "Monday": 0,
@@ -74,32 +105,41 @@ days = {
     "Sunday": 6
 }
 
+
 selected_day = st.selectbox(
     "Pickup Day",
     list(days.keys())
 )
 
+
 pickup_day_of_week = days[selected_day]
 
+
 is_weekend = (
-    1 if days[selected_day] >= 5 else 0
+    1 if pickup_day_of_week >= 5 else 0
 )
+
 
 st.write(
     f"Weekend: {'Yes' if is_weekend else 'No'}"
 )
 
+
 st.divider()
 
 
-# -----------------------------
+# --------------------------------------------------
 # Prediction
-# -----------------------------
+# --------------------------------------------------
 
 if st.button(
     "💰 Predict Fare",
     use_container_width=True
 ):
+
+    # --------------------------------------------------
+    # Data sent to FastAPI
+    # --------------------------------------------------
 
     data = {
 
@@ -118,9 +158,6 @@ if st.button(
         "pickup_day_of_week": pickup_day_of_week,
 
         "is_weekend": is_weekend
-
-        # 🔴 CHANGED
-        # trip_distance is no longer sent.
     }
 
 
@@ -132,16 +169,10 @@ if st.button(
             timeout=10
         )
 
-        st.write(
-            "Status:",
-            response.status_code
-        )
 
-        st.write(
-            "Response:",
-            response.text
-        )
-
+        # --------------------------------------------------
+        # Successful Prediction
+        # --------------------------------------------------
 
         if response.status_code == 200:
 
@@ -149,23 +180,42 @@ if st.button(
 
             fare = result["predicted_fare"]
 
-            # 🔴 CHANGED
             trip_distance = result["trip_distance"]
+
 
             st.success(
                 "Prediction successful!"
             )
+
 
             st.metric(
                 label="Estimated Taxi Fare",
                 value=f"${fare:.2f}"
             )
 
-            # 🔴 CHANGED
+
             st.info(
-                f"Calculated Trip Distance: "
+                f"📏 Calculated Trip Distance: "
                 f"{trip_distance:.2f} km"
             )
+
+
+        # --------------------------------------------------
+        # Validation Error
+        # --------------------------------------------------
+
+        elif response.status_code == 400:
+
+            error_data = response.json()
+
+            st.error(
+                f"❌ {error_data['detail']}"
+            )
+
+
+        # --------------------------------------------------
+        # Other API Errors
+        # --------------------------------------------------
 
         else:
 
@@ -174,24 +224,37 @@ if st.button(
             )
 
 
-    except requests.exceptions.ConnectionError as e:
+    # --------------------------------------------------
+    # Connection Error
+    # --------------------------------------------------
+
+    except requests.exceptions.ConnectionError:
 
         st.error(
-            f"Connection Error: {e}"
+            "❌ Could not connect to FastAPI. "
+            "Make sure the FastAPI server is running."
         )
 
+
+    # --------------------------------------------------
+    # Timeout Error
+    # --------------------------------------------------
 
     except requests.exceptions.Timeout:
 
         st.error(
-            "FastAPI request timed out."
+            "❌ FastAPI request timed out."
         )
 
+
+    # --------------------------------------------------
+    # Unexpected Error
+    # --------------------------------------------------
 
     except Exception as e:
 
         st.error(
-            f"Unexpected Error: {e}"
+            f"❌ Unexpected Error: {e}"
         )
 
 
