@@ -164,7 +164,7 @@ if st.button(
     try:
 
         response = requests.post(
-            "http://127.0.0.1:8000/predict",
+             "https://taxi-fare-prediction-api.onrender.com/predict",
             json=data,
             timeout=10
         )
