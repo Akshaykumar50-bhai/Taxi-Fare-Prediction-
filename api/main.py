@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import joblib
-import math  # 🔴 CHANGED
+import math
+
 
 # Create FastAPI App
 app = FastAPI(
@@ -9,12 +10,26 @@ app = FastAPI(
     version="1.0.0"
 )
 
-model = joblib.load(
-    r"taxi_Fare_model.pkl"
-)
+
+# Load ML model
+model = joblib.load("taxi_Fare_model.pkl")
 
 
-# Input data structure
+# --------------------------------------------------
+# NYC Boundary Limits
+# --------------------------------------------------
+
+LON_MIN = -75
+LON_MAX = -72
+
+LAT_MIN = 39
+LAT_MAX = 42
+
+
+# --------------------------------------------------
+# Input Data Structure
+# --------------------------------------------------
+
 class TaxiInput(BaseModel):
 
     pickup_longitude: float
@@ -28,18 +43,23 @@ class TaxiInput(BaseModel):
     pickup_day_of_week: int
     is_weekend: int
 
-    # 🔴 CHANGED
-    # trip_distance is removed because FastAPI will calculate it
 
+# --------------------------------------------------
+# Home Route
+# --------------------------------------------------
 
-# Home route
 @app.get("/")
 def home():
-    return {"message": "Taxi Fare prediction API is running"}
+
+    return {
+        "message": "Taxi Fare prediction API is running"
+    }
 
 
-# 🔴 CHANGED
-# Haversine distance calculation
+# --------------------------------------------------
+# Haversine Distance Calculation
+# --------------------------------------------------
+
 def calculate_distance(
     pickup_longitude,
     pickup_latitude,
@@ -71,23 +91,86 @@ def calculate_distance(
     # Earth's radius in kilometers
     radius = 6371
 
+    # Distance in kilometers
     distance = radius * c
 
     return distance
 
 
-# Prediction route
+# --------------------------------------------------
+# Prediction Route
+# --------------------------------------------------
+
 @app.post("/predict")
 def predict(data: TaxiInput):
 
-    # 🔴 CHANGED
-    # Calculate trip distance automatically
+    # --------------------------------------------------
+    # Coordinate Validation
+    # --------------------------------------------------
+
+    if not (
+        LON_MIN <= data.pickup_longitude <= LON_MAX
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid pickup longitude. "
+                "Please enter a value between -75 and -72."
+            )
+        )
+
+
+    if not (
+        LAT_MIN <= data.pickup_latitude <= LAT_MAX
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid pickup latitude. "
+                "Please enter a value between 39 and 42."
+            )
+        )
+
+
+    if not (
+        LON_MIN <= data.dropoff_longitude <= LON_MAX
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid dropoff longitude. "
+                "Please enter a value between -75 and -72."
+            )
+        )
+
+
+    if not (
+        LAT_MIN <= data.dropoff_latitude <= LAT_MAX
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid dropoff latitude. "
+                "Please enter a value between 39 and 42."
+            )
+        )
+
+
+    # --------------------------------------------------
+    # Calculate Trip Distance
+    # --------------------------------------------------
+
     trip_distance = calculate_distance(
         data.pickup_longitude,
         data.pickup_latitude,
         data.dropoff_longitude,
         data.dropoff_latitude
     )
+
+
+    # --------------------------------------------------
+    # Prepare Features
+    # --------------------------------------------------
 
     features = [[
         data.pickup_longitude,
@@ -101,13 +184,22 @@ def predict(data: TaxiInput):
         trip_distance
     ]]
 
+
+    # --------------------------------------------------
+    # Prediction
+    # --------------------------------------------------
+
     prediction = model.predict(features)
+
+
+    # --------------------------------------------------
+    # Return Result
+    # --------------------------------------------------
 
     return {
         "predicted_fare": round(float(prediction[0]), 2),
-        "trip_distance": round(trip_distance, 2)  # 🔴 CHANGED
+        "trip_distance": round(trip_distance, 2)
     }
-
 
 
 
